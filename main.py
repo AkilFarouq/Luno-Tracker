@@ -1,25 +1,21 @@
-from luno_python.client import Client
 from bootstrap import *
-    
 
 def main():
-    client = Client(api_key_id=API_KEY, api_key_secret=API_SECRET)
     try:
-        response = client.get_balances()
+        bal_resp = COMP.loadComponent('Balances').getBalances()
+        TRANSOBJ = COMP.loadComponent('Transactions')
         
         balobjs = []
-        for balance in response.get("balance", []):
-            BALOBJ = COMP.loadComponent('Balances',balance)
-            if(BALOBJ.balanceExist()): balobjs.append(BALOBJ.getComp())
-        
-        TRANSOBJ = COMP.loadComponent('Transactions')
-        for balobj in balobjs:
-            resp = TRANSOBJ.getTransactions(balobj.account_id)
-            balobj.createJsonTransactions(resp)
+        for balance in bal_resp.get("balance", []):
+            balobj = COMP.loadComponent('Balances',balance)
+            if(balobj.balanceExist()): 
+                balobjs.append(balobj)
+                trans_resp = TRANSOBJ.getTransactions(balobj.account_id)
+                balobj.createJsonTransactions(trans_resp)
+                balobj.loadJsonData()
 
     except Exception as e:
-        print("An error occurred:")
-        print(e)
+        print(f"An error occurred:{e}")
 
 if __name__ == '__main__':
     main()

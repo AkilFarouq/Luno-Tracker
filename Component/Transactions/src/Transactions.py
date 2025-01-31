@@ -4,8 +4,16 @@ class Transactions(Component):
     def __init__(self):
         super().__init__()
         self.url = f"{self.getEnv("API_URL")}{self.getEnv("API_TRANS_URL")}"
+        # self.getClient()
     
     def getTransactions(self,account_id):
+        # try:
+        #     response = self.Client.list_transactions(account_id,100,0)
+        #     print(response['transactions'])
+        # except Exception as e:
+        #     print("An error occurred:")
+        #     print(e)
+        #     return False
         url = self.getAccountUrl(account_id)
 
         response = self.sendRequest(url)
