@@ -1,6 +1,10 @@
 import os
 import importlib.util
 import json
+import re
+from pathlib import Path
+from luno_python.client import Client
+
 from config.loadenv import *
 from requests.auth import HTTPBasicAuth
 import requests
@@ -15,6 +19,13 @@ class Component:
         self.loadEnv()
         self.requests = requests
         self.HTTPBasicAuth = HTTPBasicAuth
+        self.Path = Path
+        self.Client = None
+        self.re = re
+    
+    def getClient(self):
+        self.Client = Client(api_key_id=self.env["API_KEY"], api_key_secret=self.env["API_SECRET"])
+        return self.Client
     
     def loadEnv(self):
         self.env = {}
@@ -23,25 +34,27 @@ class Component:
             self.env[key] = value
     
     def getEnv(self,key):
-        return self.env.get(key,"NOTENV")
+        """To get any value exists within .env. Case Insensitive. Return 'NOTENV' if not found."""
+        return self.env.get(key.upper(),"NOTENV")
     
     def listError(self):
         self.errorList = {
             "NOTENV":"Not In Environment Data"
         }
     
-    def isError(self,str):
-        if(str in list(self.errorList.keys())):return True
+    def isError(self,errCode):
+        """Check if errCode is one of the error inside this class. Return True if errCode is one of the error code, else False"""
+        if(errCode in list(self.errorList.keys())):return True
         else: return False
     
     def getComp(self):
+        """Get current object"""
         return self
 
     @staticmethod
     def loadComponent(compName, *args, **kwargs):
-        # Define the file path
+        """Load Component inside Component Folder. Return the component if exist, else False"""
         file_path = f'{os.path.dirname(__file__)}/{compName}/src/{compName}.py'
-        # print(f"file_path={file_path}")
         
         # Check if the file exists
         if os.path.exists(file_path):
@@ -57,7 +70,6 @@ class Component:
             if callable(class_obj):
                 return class_obj(*args, **kwargs)
         
-        # Return False if the file doesn't exist or class is not found
         return False
     
     def createPath(self,filepath):
@@ -76,7 +88,8 @@ class Component:
     def getSrcPath(self):
         return f"{self.getCompPath()}src/"
     
-    def NewComponent(self,ComponentName):
+    def NewComponent(self,ComponentName,overwrite='N'):
+        """Create a new component inside Component/ folder. No return"""
         tempCompName = self.classname
         self.classname = ComponentName
 
@@ -85,8 +98,8 @@ class Component:
         self.createPath(self.getDataPath())
         self.createPath(self.getSrcPath())
         filepath = f"{self.getSrcPath()}{self.classname}.py"
-        
-        if(not self.pathExist(filepath=filepath)):
+
+        if(not self.pathExist(filepath=filepath) or overwrite == 'Y'):
             compbody = f"""from Component.Component import Component
 
 class {self.classname}(Component):
@@ -100,7 +113,7 @@ class {self.classname}(Component):
         self.classname = tempCompName
     
     def createJsonFile(self,filepath,filedata,overwrite='N',indent=4):
-        if(overwrite == 'Y' and self.pathExist(filepath)):
+        if(overwrite == 'Y' or not self.pathExist(filepath)):
             with open(filepath, "w") as f:
                     self.json.dump(filedata,f, indent=indent)
     

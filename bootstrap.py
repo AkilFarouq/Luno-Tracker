@@ -1,4 +1,3 @@
-from config.loadenv import *
-from Component.Component import Component as COMP
-
-COMPOBJ = COMP()
+from config import *
+from Component import *
+from luno_python.client import Client
