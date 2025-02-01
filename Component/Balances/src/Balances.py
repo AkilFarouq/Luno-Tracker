@@ -34,6 +34,12 @@ class Balances(Component):
         self.reserved = balance.get("reserved")
         self.unconfirmed = balance.get("unconfirmed")
         
+    def getValueRegex(self,regex,str):
+        match = self.re.search(regex, str)
+        if match:
+            str = match.group(1)
+            return float(str.replace(",", ""))
+        return False
 
     def balanceExist(self):
         if(
@@ -87,7 +93,8 @@ class Balances(Component):
         transData = {
             "id":self.account_id,
             "currency":self.asset,
-            "transactions": []
+            "transactions": [],
+            "fee_transaction": []
         }
         for file in transFiles:
             with open(f"{self.dir}/{file}", 'r') as filedata:
@@ -99,6 +106,7 @@ class Balances(Component):
             bal_before = data["balance"]
             bal_after = bal_before + value
             price = 0
+            id = data["row_index"]
             if data['description'] == 'Trading fee':
                 transtype = "FEE"
                 trade = 'Y'
@@ -107,7 +115,7 @@ class Balances(Component):
                     transtype = "BOUGHT"
                 else: transtype = "SOLD"
                 
-                if "detail_fields" in data:
+                if "trade_details" in data["detail_fields"]:
                     trade = 'Y'
             app_val = "0"
             if "Price" in data["details"]: 
@@ -117,23 +125,42 @@ class Balances(Component):
                 app_val = data["details"]["Approximate value"]
                 pattern = r"\(([\d,]+)"
                 
-            match = self.re.search(pattern, app_val)
-            if match:
-                app_val = match.group(1)
-                price = float(app_val.replace(",", ""))
+            price = self.getValueRegex(pattern,app_val)
 
-            trans = {
-                "id":data["row_index"],
-                "type":transtype,
-                "value":value,
-                "price":price,
-                "trade":trade,
-                "balance_before":bal_before,
-                "balance_after":bal_after,
-                "description":""
-            }
-            transData["transactions"].append(trans)
-        # print(transData)
+            if transtype == 'FEE':
+                fee_trans = {
+                    "id":id,
+                    "type":"FEE",
+                    "value":value,
+                    "price":price,
+                }
+                transData["fee_transaction"].append(fee_trans)
+            else:
+                trans = {
+                    "id":id,
+                    "type":transtype,
+                    "value":value,
+                    "price":price,
+                    "trade":trade,
+                    "balance_before":bal_before,
+                    "balance_after":bal_after,
+                    "description":""
+                }
+                transData["transactions"].append(trans)
+
+                if 'Fee' in data["details"]:
+                    fee = self.getValueRegex(r"([\d.]+)",data["details"]["Fee"])
+                    fee_price = self.getValueRegex(r"([\d,]+\.\d+)",data["details"]["Price"])
+                    fee_trans = {
+                        "id":id,
+                        "type":"FEE",
+                        "value":fee,
+                        "price":fee_price,
+                    }
+                    transData["fee_transaction"].append(fee_trans)
+
+        transData["transactions"] = sorted(transData["transactions"], key=lambda x: x["id"], reverse=True)
+        transData["fee_transaction"] = sorted(transData["fee_transaction"], key=lambda x: x["id"], reverse=True)
         self.createJsonFile(f"{self.dir}/compile.json",transData,'Y')
 
     def get_filtered_files(self,directory):
